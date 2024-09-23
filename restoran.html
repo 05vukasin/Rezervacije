@@ -119,44 +119,6 @@
 <!-- Div za prikaz mape -->
 <div id="map" style="height: 400px; margin-top: 20px;"></div>
 
-<script>
-    // Function to initialize Google Map
-    function initMap() {
-        const geocoder = new google.maps.Geocoder();
-        const address = "<!-- Unesi ovde adresu restorana, preuzetu iz API-a -->";
-
-        // Geocode the address to get latitude and longitude
-        geocoder.geocode({ address: address }, function (results, status) {
-            if (status === "OK") {
-                const map = new google.maps.Map(document.getElementById("map"), {
-                    zoom: 15,
-                    center: results[0].geometry.location,
-                });
-
-                // Add marker to the map
-                const marker = new google.maps.Marker({
-                    position: results[0].geometry.location,
-                    map: map,
-                });
-            } else {
-                console.error("Geocode was not successful for the following reason: " + status);
-                document.getElementById("map").innerHTML = "Location not available";
-            }
-        });
-    }
-
-    // Load Google Maps script dynamically
-    function loadGoogleMapsScript() {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyC1ZSuTYsM_515ggYnpxFaFZvZIpxFbCX4&callback=initMap`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-    }
-
-    // Call the function to load Google Maps script on page load
-    loadGoogleMapsScript();
-</script>
 
 
 
@@ -164,83 +126,123 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const apiUrl = 'https://rezervacijeapi.azurewebsites.net/api/restaurant/';
+let restaurantAddress = ''; // Globalna promenljiva za čuvanje adrese restorana
 
-    // Function to fetch restaurant details using the ID from localStorage
-    async function fetchRestaurantDetails() {
-        const restaurantId = localStorage.getItem('selectedRestaurantId');
-        if (!restaurantId) {
-            window.location.href = 'index.html';  // Redirect to index.html if no ID is found
-        }
-
-        try {
-            const response = await fetch(apiUrl + restaurantId);
-            const restaurant = await response.json();
-            displayRestaurantDetails(restaurant);
-            displayCarousel(restaurant.slike);
-        } catch (error) {
-            console.error('Error fetching restaurant details:', error);
-        }
+// Function to fetch restaurant details using the ID from localStorage
+async function fetchRestaurantDetails() {
+    const restaurantId = localStorage.getItem('selectedRestaurantId');
+    if (!restaurantId) {
+        window.location.href = 'index.html';  // Redirect to index.html if no ID is found
+        return;
     }
 
-    // Function to display restaurant details
-    function displayRestaurantDetails(restaurant) {
-        const restaurantDetails = document.getElementById('restaurantDetails');
-        restaurantDetails.innerHTML = `
-            <div class="restaurant-header d-flex justify-content-center align-items-center mb-4">
-                <img src="${restaurant.profilnaSlika || 'https://via.placeholder.com/150'}" class="profile-image me-3" alt="${restaurant.naziv}">
-                <div>
-                    <h2>${restaurant.naziv}</h2>
-                    <p>${restaurant.adresa}</p>
+    try {
+        const response = await fetch(apiUrl + restaurantId);
+        const restaurant = await response.json();
+        restaurantAddress = restaurant.adresa; // Čuvanje adrese restorana za prikaz na mapi
+        displayRestaurantDetails(restaurant);
+        displayCarousel(restaurant.slike);
+
+        // Inicijalizacija mape nakon što se dobije adresa restorana
+        loadGoogleMapsScript();
+    } catch (error) {
+        console.error('Error fetching restaurant details:', error);
+    }
+}
+
+// Function to display restaurant details
+function displayRestaurantDetails(restaurant) {
+    const restaurantDetails = document.getElementById('restaurantDetails');
+    restaurantDetails.innerHTML = `
+        <div class="restaurant-header d-flex justify-content-center align-items-center mb-4">
+            <img src="${restaurant.profilnaSlika || 'https://via.placeholder.com/150'}" class="profile-image me-3" alt="${restaurant.naziv}">
+            <div>
+                <h2>${restaurant.naziv}</h2>
+                <p>${restaurant.adresa}</p>
+            </div>
+        </div>
+    `;
+}
+
+// Function to display carousel for restaurant images
+function displayCarousel(images) {
+    const carouselContainer = document.getElementById('carouselContainer');
+    if (images.length > 0) {
+        let carouselItems = images.map((image, index) => `
+            <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                <img src="${image.slikaUrl}" class="d-block w-100" alt="Restaurant Image">
+            </div>
+        `).join('');
+
+        carouselContainer.innerHTML = `
+            <div id="carouselImages" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    ${carouselItems}
                 </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#carouselImages" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#carouselImages" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
             </div>
         `;
+    } else {
+        carouselContainer.innerHTML = `<p>No images available for this restaurant.</p>`;
     }
+}
 
-    // Function to display carousel for restaurant images
-    function displayCarousel(images) {
-        const carouselContainer = document.getElementById('carouselContainer');
-        if (images.length > 0) {
-            let carouselItems = images.map((image, index) => `
-                <div class="carousel-item ${index === 0 ? 'active' : ''}">
-                    <img src="${image.slikaUrl}" class="d-block w-100" alt="Restaurant Image">
-                </div>
-            `).join('');
+// Function to initialize Google Map with dynamic address
+function initMap() {
+    const geocoder = new google.maps.Geocoder();
 
-            carouselContainer.innerHTML = `
-                <div id="carouselImages" class="carousel slide" data-bs-ride="carousel">
-                    <div class="carousel-inner">
-                        ${carouselItems}
-                    </div>
-                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselImages" data-bs-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Previous</span>
-                    </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#carouselImages" data-bs-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Next</span>
-                    </button>
-                </div>
-            `;
+    // Geocode the address to get latitude and longitude
+    geocoder.geocode({ address: restaurantAddress }, function (results, status) {
+        if (status === "OK") {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: results[0].geometry.location,
+            });
+
+            // Add marker to the map
+            const marker = new google.maps.Marker({
+                position: results[0].geometry.location,
+                map: map,
+            });
         } else {
-            carouselContainer.innerHTML = `<p>No images available for this restaurant.</p>`;
+            console.error("Geocode was not successful for the following reason: " + status);
+            document.getElementById("map").innerHTML = "Location not available";
         }
-    }
-
-    // Function to handle back navigation
-    function goBack() {
-        window.location.href = 'index.html';
-    }
-
-    // Fetch restaurant details on page load
-    fetchRestaurantDetails();
-
-    // Handle form submission for reservation
-    document.getElementById('reservationForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-        alert('Reservation submitted successfully!');
-        document.getElementById('reservationForm').reset();
-        // Here you can add logic to send reservation details to your backend if needed
     });
+}
+
+// Function to load Google Maps script dynamically
+function loadGoogleMapsScript() {
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyC1ZSuTYsM_515ggYnpxFaFZvZIpxFbCX4&callback=initMap`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+}
+
+// Function to handle back navigation
+function goBack() {
+    window.location.href = 'index.html';
+}
+
+// Fetch restaurant details on page load
+fetchRestaurantDetails();
+
+// Handle form submission for reservation
+document.getElementById('reservationForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    alert('Reservation submitted successfully!');
+    document.getElementById('reservationForm').reset();
+    // Here you can add logic to send reservation details to your backend if needed
+});
+
 </script>
 </body>
 </html>
